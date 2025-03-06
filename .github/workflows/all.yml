@@ -1,0 +1,85 @@
+name: All
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: pwsh
+    working-directory: scripts
+
+concurrency:
+  group: all
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Filters
+        uses: dorny/paths-filter@v3
+        id: filters
+        with:
+          working-directory:
+          filters: |
+            shared:
+              - .github/workflows/all.yml
+              - .github/workflows/shared.yml
+              - .github/workflows/tf-apply.yml
+              - terraform/global_vars/**/*
+              - terraform/shared/**/*
+            app:
+              - .github/workflows/all.yml
+              - .github/workflows/app.yml
+              - .github/workflows/tf-apply.yml
+              - app/**/*
+              - terraform/global_vars/**/*
+              - terraform/app/**/*
+            jcmsui: 
+              - .github/workflows/all.yml
+              - .github/workflows/jcmsui.yml
+              - .github/workflows/tf-apply.yml
+              - jcmsui/**/*
+              - terraform/global_vars/**/*
+              - terraform/jcmsui/**/*
+            oracle:
+              - .github/workflows/all.yml
+              - .github/workflows/oracle.yml
+              - .github/workflows/tf-apply.yml
+              - app/oracle/**/*
+              - terraform/global_vars/**/*
+              - terraform/oracle/**/*
+    outputs:
+      shared: ${{ contains(steps.filters.outputs.changes, 'shared') }}
+      app: ${{ contains(steps.filters.outputs.changes, 'app') }}
+      jcmsui: ${{ contains(steps.filters.outputs.changes, 'jcmsui') }}
+      oracle: ${{ contains(steps.filters.outputs.changes, 'oracle') }}
+
+  shared:
+    needs: [changes]
+    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.shared == 'true')
+    uses: ./.github/workflows/shared.yml
+    secrets: inherit
+
+  app:
+    needs: [changes, shared]
+    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.app == 'true')
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+
+  jcmsui:
+    needs: [changes, shared]
+    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.jcmsui == 'true')
+    uses: ./.github/workflows/jcmsui.yml
+    secrets: inherit
+
+  oracle:
+    needs: [changes, shared]
+    if: always() && !failure() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.oracle == 'true')
+    uses: ./.github/workflows/oracle.yml
+    secrets: inherit

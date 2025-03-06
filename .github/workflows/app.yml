@@ -1,0 +1,62 @@
+name: App
+on:
+  workflow_call:
+    secrets:
+      JCMS_GITHUBSPCLIENTID:
+        required: true
+      JCMS_GITHUBSPCLIENTSECRET:
+        required: true
+      JCMS_SUBSCRIPTIONID:
+        required: true
+      JCMS_TENANTID:
+        required: true
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: pwsh
+    working-directory: scripts
+
+env:
+  JCMS_GITHUBSPCLIENTID: ${{ secrets.JCMS_GITHUBSPCLIENTID }}
+  JCMS_GITHUBSPCLIENTSECRET: ${{ secrets.JCMS_GITHUBSPCLIENTSECRET }}
+  JCMS_SUBSCRIPTIONID: ${{ secrets.JCMS_SUBSCRIPTIONID }}
+  JCMS_TENANTID: ${{ secrets.JCMS_TENANTID }}
+  JCMS_CREDS:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - run: . ./shared.ps1
+        id: shared
+
+      - run: docker build -t "$env:JCMS_ACR_NAME.azurecr.io/app:$env:JCMS_TAG" .
+        working-directory: app
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ env.JCMS_CREDS }}
+
+      - name: Login to ACR
+        run: az acr login --name "$env:JCMS_ACR_NAME.azurecr.io"
+
+      - name: Push the image to ACR
+        run: docker push "$env:JCMS_ACR_NAME.azurecr.io/app:$env:JCMS_TAG"
+
+    outputs:
+      JCMS_TAG: ${{ steps.shared.outputs.JCMS_TAG }}
+
+  tf:
+    needs: [build]
+    uses: ./.github/workflows/tf-apply.yml
+    with:
+      tf-dir: app
+      tf-apply-args: -var="tag=${{ needs.build.outputs.JCMS_TAG }}"
+    secrets: inherit

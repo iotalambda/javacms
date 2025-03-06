@@ -1,0 +1,2 @@
+az logout
+az login

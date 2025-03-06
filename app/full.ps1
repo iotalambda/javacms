@@ -1,0 +1,1 @@
+docker compose --profile full up --build

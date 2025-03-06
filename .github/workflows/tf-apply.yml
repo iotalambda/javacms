@@ -1,0 +1,66 @@
+name: TF Apply
+on:
+  workflow_call:
+    inputs:
+      tf-dir:
+        required: true
+        type: string
+      tf-apply-args:
+        required: false
+        type: string
+      az-cli-required:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      JCMS_GITHUBSPCLIENTID:
+        required: true
+      JCMS_GITHUBSPCLIENTSECRET:
+        required: true
+      JCMS_SUBSCRIPTIONID:
+        required: true
+      JCMS_TENANTID:
+        required: true
+
+env:
+  INPUTS_TF_DIR: ${{ inputs.tf-dir }}
+  INPUTS_TF_APPLY_ARGS: ${{ inputs.tf-apply-args }}
+  JCMS_GITHUBSPCLIENTID: ${{ secrets.JCMS_GITHUBSPCLIENTID }}
+  JCMS_GITHUBSPCLIENTSECRET: ${{ secrets.JCMS_GITHUBSPCLIENTSECRET }}
+  JCMS_SUBSCRIPTIONID: ${{ secrets.JCMS_SUBSCRIPTIONID }}
+  JCMS_TENANTID: ${{ secrets.JCMS_TENANTID }}
+  JCMS_CREDS:
+
+defaults:
+  run:
+    shell: pwsh
+    working-directory: scripts
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - run: . ./shared.ps1
+        if: inputs.az-cli-required
+        id: shared
+
+      - name: Login to Azure
+        if: inputs.az-cli-required
+        uses: azure/login@v2
+        with:
+          creds: ${{ env.JCMS_CREDS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.4
+
+      - name: Terraform Apply
+        run: |
+          ./100_tfinit.ps1 -TfDir "$env:INPUTS_TF_DIR"
+          ./102_tfapply.ps1 -TfDir "$env:INPUTS_TF_DIR" -TfApplyArgs "$env:INPUTS_TF_APPLY_ARGS"

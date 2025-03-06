@@ -1,0 +1,57 @@
+name: TF Plan
+on:
+  workflow_call:
+    inputs:
+      tf-dir:
+        required: true
+        type: string
+      tf-plan-args:
+        required: false
+        type: string
+    secrets:
+      JCMS_GITHUBSPCLIENTID:
+        required: true
+      JCMS_GITHUBSPCLIENTSECRET:
+        required: true
+      JCMS_SUBSCRIPTIONID:
+        required: true
+      JCMS_TENANTID:
+        required: true
+
+env:
+  INPUTS_TF_DIR: ${{ inputs.tf-dir }}
+  INPUTS_TF_APPLY_ARGS: ${{ inputs.tf-plan-args }}
+  JCMS_GITHUBSPCLIENTID: ${{ secrets.JCMS_GITHUBSPCLIENTID }}
+  JCMS_GITHUBSPCLIENTSECRET: ${{ secrets.JCMS_GITHUBSPCLIENTSECRET }}
+  JCMS_SUBSCRIPTIONID: ${{ secrets.JCMS_SUBSCRIPTIONID }}
+  JCMS_TENANTID: ${{ secrets.JCMS_TENANTID }}
+
+defaults:
+  run:
+    shell: pwsh
+    working-directory: scripts
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.4
+
+      - name: Terraform Plan
+        run: |
+          ./100_tfinit.ps1 -TfDir "$env:INPUTS_TF_DIR"
+          ./101_tfplan.ps1 -TfDir "$env:INPUTS_TF_DIR" -TfPlanArgs "$env:INPUTS_TF_PLAN_ARGS"
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: ${{ github.workspace }}/terraform/tfplan

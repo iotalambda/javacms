@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+    profiles:
+      - full
+    depends_on:
+      - oracle
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+    ports:
+      - "8080:8080"
+
+  jcmsui:
+    profiles:
+      - full
+    depends_on:
+      - app
+    build:
+      context: ../jcmsui/
+    environment:
+      - JCMS_API_BASE_URL=http://app:8080
+    ports:
+      - "3000:3000"
+
+  oracle:
+    image: "gvenzl/oracle-free:latest"
+    environment:
+      - "ORACLE_PASSWORD=secret"
+    ports:
+      - "1521:1521"

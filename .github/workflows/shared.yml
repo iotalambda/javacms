@@ -1,0 +1,17 @@
+name: Shared
+on:
+  workflow_call:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: pwsh
+    working-directory: scripts
+
+jobs:
+  tf:
+    uses: ./.github/workflows/tf-apply.yml
+    with:
+      tf-dir: shared
+      az-cli-required: true
+    secrets: inherit
